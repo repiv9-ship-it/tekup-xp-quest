@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Send } from "lucide-react";
+import { Send, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 
@@ -22,6 +23,7 @@ interface Message {
 }
 
 const Chat = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -135,14 +137,26 @@ const Chat = () => {
     <div className="min-h-screen bg-background pb-20">
       <div className="bg-gradient-primary p-6 rounded-b-3xl shadow-glow">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold">
-            {isOfficer ? "Member Support Chat" : "Chat with Staff"}
-          </h1>
-          <p className="text-foreground/80 mt-2">
-            {isOfficer 
-              ? "View and respond to all member messages" 
-              : "Get help from our admin team"}
-          </p>
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => navigate("/")}
+              className="text-foreground hover:bg-white/10"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">
+                {isOfficer ? "Member Support Chat" : "Chat with Staff"}
+              </h1>
+              <p className="text-foreground/80 mt-1">
+                {isOfficer 
+                  ? "View and respond to all member messages" 
+                  : "Get help from our admin team"}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 

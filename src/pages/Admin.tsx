@@ -4,11 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users, CheckSquare, Calendar, Bell } from "lucide-react";
+import { ArrowLeft, Users, CheckSquare, Calendar, Bell, MessageSquare } from "lucide-react";
 import { AdminTasks } from "@/components/admin/AdminTasks";
 import { AdminEvents } from "@/components/admin/AdminEvents";
 import { AdminMembers } from "@/components/admin/AdminMembers";
 import { AdminAnnouncements } from "@/components/admin/AdminAnnouncements";
+import { AdminLiveChat } from "@/components/admin/AdminLiveChat";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -69,7 +70,7 @@ const Admin = () => {
 
       <div className="max-w-6xl mx-auto p-6">
         <Tabs defaultValue="tasks" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="tasks" className="gap-2">
               <CheckSquare className="h-4 w-4" />
               Tasks
@@ -81,6 +82,10 @@ const Admin = () => {
             <TabsTrigger value="members" className="gap-2">
               <Users className="h-4 w-4" />
               Members
+            </TabsTrigger>
+            <TabsTrigger value="livechat" className="gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Live Chat
             </TabsTrigger>
             <TabsTrigger value="announcements" className="gap-2">
               <Bell className="h-4 w-4" />
@@ -98,6 +103,10 @@ const Admin = () => {
 
           <TabsContent value="members">
             <AdminMembers />
+          </TabsContent>
+
+          <TabsContent value="livechat">
+            <AdminLiveChat />
           </TabsContent>
 
           <TabsContent value="announcements">
