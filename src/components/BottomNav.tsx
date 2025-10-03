@@ -1,4 +1,4 @@
-import { Home, CheckSquare, Calendar, User, Crown } from "lucide-react";
+import { Home, CheckSquare, Calendar, User, Crown, MessageCircle } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +10,7 @@ export const BottomNav = () => {
     { icon: Home, label: "Home", path: "/" },
     { icon: CheckSquare, label: "Tasks", path: "/tasks" },
     { icon: Calendar, label: "Events", path: "/events" },
+    { icon: MessageCircle, label: "Chat", path: "/chat" },
     { icon: User, label: "Profile", path: "/profile" },
   ];
 
