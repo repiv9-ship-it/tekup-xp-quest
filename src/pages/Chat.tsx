@@ -29,12 +29,14 @@ const Chat = () => {
   const [newMessage, setNewMessage] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isOfficer, setIsOfficer] = useState(false);
+  const [ticketId, setTicketId] = useState<string | null>(null);
+  const [ticketStatus, setTicketStatus] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadUserAndMessages();
     
-    const channel = supabase
+    const messagesChannel = supabase
       .channel('chat-messages')
       .on(
         'postgres_changes',
@@ -44,15 +46,33 @@ const Chat = () => {
           table: 'chat_messages'
         },
         () => {
-          loadMessages();
+          if (ticketId) loadMessages(ticketId);
+        }
+      )
+      .subscribe();
+
+    const ticketsChannel = supabase
+      .channel('chat-tickets')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chat_tickets'
+        },
+        (payload) => {
+          if (payload.new.id === ticketId) {
+            setTicketStatus(payload.new.status);
+          }
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(ticketsChannel);
     };
-  }, []);
+  }, [ticketId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -76,14 +96,39 @@ const Chat = () => {
       
       setCurrentUser(profile);
       setIsOfficer(profile?.role === "officer");
-      await loadMessages();
+      
+      // Check if user already has a ticket
+      const { data: existingTicket } = await supabase
+        .from("chat_tickets")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (existingTicket) {
+        setTicketId(existingTicket.id);
+        setTicketStatus(existingTicket.status);
+        await loadMessages(existingTicket.id);
+      } else {
+        // Create new ticket
+        const { data: newTicket, error } = await supabase
+          .from("chat_tickets")
+          .insert({ user_id: user.id })
+          .select()
+          .single();
+
+        if (!error && newTicket) {
+          setTicketId(newTicket.id);
+          setTicketStatus(newTicket.status);
+        }
+      }
     }
   };
 
-  const loadMessages = async () => {
+  const loadMessages = async (ticket_id: string) => {
     const { data: messagesData, error } = await supabase
       .from("chat_messages")
       .select("*")
+      .eq("ticket_id", ticket_id)
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -112,13 +157,14 @@ const Chat = () => {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || !ticketId) return;
 
     const { error } = await supabase
       .from("chat_messages")
       .insert({
         content: newMessage.trim(),
-        sender_id: currentUser.id
+        sender_id: currentUser.id,
+        ticket_id: ticketId
       });
 
     if (error) {
@@ -165,9 +211,23 @@ const Chat = () => {
           <CardHeader>
             <CardTitle>Messages</CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col p-0">
-            <ScrollArea className="flex-1 px-6" ref={scrollRef}>
-              <div className="space-y-4 pb-4">
+        <CardContent className="flex-1 flex flex-col p-0">
+          {ticketStatus === 'pending' && (
+            <div className="p-4 bg-muted/50 border-b">
+              <p className="text-sm text-muted-foreground text-center">
+                Your support ticket is pending. An admin will respond soon.
+              </p>
+            </div>
+          )}
+          {ticketStatus === 'closed' && (
+            <div className="p-4 bg-destructive/10 border-b">
+              <p className="text-sm text-destructive text-center">
+                This ticket has been closed.
+              </p>
+            </div>
+          )}
+          <ScrollArea className="flex-1 px-6" ref={scrollRef}>
+            <div className="space-y-4 pb-4">
                 {messages.map((message) => {
                   const isOwnMessage = message.sender_id === currentUser?.id;
                   const senderName = message.sender?.full_name || "Unknown";
@@ -213,19 +273,24 @@ const Chat = () => {
               </div>
             </ScrollArea>
 
-            <form onSubmit={handleSendMessage} className="p-4 border-t">
-              <div className="flex gap-2">
-                <Input
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type your message..."
-                  className="flex-1"
-                />
-                <Button type="submit" size="icon" disabled={!newMessage.trim()}>
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
-            </form>
+          <form onSubmit={handleSendMessage} className="p-4 border-t">
+            <div className="flex gap-2">
+              <Input
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type your message..."
+                className="flex-1"
+                disabled={ticketStatus === 'closed'}
+              />
+              <Button 
+                type="submit" 
+                size="icon" 
+                disabled={!newMessage.trim() || ticketStatus === 'closed'}
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </form>
           </CardContent>
         </Card>
       </div>

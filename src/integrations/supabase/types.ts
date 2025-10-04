@@ -89,6 +89,7 @@ export type Database = {
           id: string
           is_read: boolean
           sender_id: string
+          ticket_id: string | null
         }
         Insert: {
           content: string
@@ -96,6 +97,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           sender_id: string
+          ticket_id?: string | null
         }
         Update: {
           content?: string
@@ -103,6 +105,42 @@ export type Database = {
           id?: string
           is_read?: boolean
           sender_id?: string
+          ticket_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "chat_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_tickets: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          id: string
+          status: Database["public"]["Enums"]["ticket_status"]
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          id?: string
+          status?: Database["public"]["Enums"]["ticket_status"]
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          id?: string
+          status?: Database["public"]["Enums"]["ticket_status"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -416,6 +454,7 @@ export type Database = {
       submission_status: "pending" | "approved" | "rejected"
       task_difficulty: "easy" | "medium" | "hard"
       task_type: "daily" | "weekly" | "one-off"
+      ticket_status: "pending" | "active" | "closed"
       user_role: "guest" | "member" | "officer"
     }
     CompositeTypes: {
@@ -547,6 +586,7 @@ export const Constants = {
       submission_status: ["pending", "approved", "rejected"],
       task_difficulty: ["easy", "medium", "hard"],
       task_type: ["daily", "weekly", "one-off"],
+      ticket_status: ["pending", "active", "closed"],
       user_role: ["guest", "member", "officer"],
     },
   },

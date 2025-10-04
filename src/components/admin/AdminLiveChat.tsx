@@ -22,18 +22,22 @@ interface Message {
   };
 }
 
-interface Conversation {
-  userId: string;
+interface Ticket {
+  id: string;
+  user_id: string;
+  status: string;
+  created_at: string;
   userName: string;
-  lastMessage: string;
-  lastMessageTime: string;
+  lastMessage?: string;
+  lastMessageTime?: string;
   unreadCount: number;
 }
 
 export const AdminLiveChat = () => {
   const { toast } = useToast();
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [pendingTickets, setPendingTickets] = useState<Ticket[]>([]);
+  const [activeTickets, setActiveTickets] = useState<Ticket[]>([]);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -41,9 +45,9 @@ export const AdminLiveChat = () => {
 
   useEffect(() => {
     loadCurrentUser();
-    loadConversations();
+    loadTickets();
     
-    const channel = supabase
+    const messagesChannel = supabase
       .channel('admin-chat-messages')
       .on(
         'postgres_changes',
@@ -53,18 +57,34 @@ export const AdminLiveChat = () => {
           table: 'chat_messages'
         },
         () => {
-          loadConversations();
-          if (selectedUserId) {
-            loadMessages(selectedUserId);
+          loadTickets();
+          if (selectedTicket) {
+            loadMessages(selectedTicket.id);
           }
         }
       )
       .subscribe();
 
+    const ticketsChannel = supabase
+      .channel('admin-chat-tickets')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_tickets'
+        },
+        () => {
+          loadTickets();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(ticketsChannel);
     };
-  }, [selectedUserId]);
+  }, [selectedTicket?.id]);
 
   useEffect(() => {
     scrollToBottom();
@@ -88,53 +108,53 @@ export const AdminLiveChat = () => {
     }
   };
 
-  const loadConversations = async () => {
-    // Get all messages
-    const { data: messagesData, error } = await supabase
-      .from("chat_messages")
+  const loadTickets = async () => {
+    const { data: ticketsData, error } = await supabase
+      .from("chat_tickets")
       .select("*")
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error loading conversations:", error);
+      console.error("Error loading tickets:", error);
       return;
     }
 
-    // Get unique users (members only)
+    // Get profiles for ticket users
+    const userIds = ticketsData?.map(t => t.user_id) || [];
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, full_name, role");
+      .select("id, full_name")
+      .in("id", userIds);
 
-    const memberProfiles = profiles?.filter(p => p.role === "member") || [];
-    
-    // Group messages by user
-    const convMap = new Map<string, Conversation>();
-    
-    memberProfiles.forEach(profile => {
-      const userMessages = messagesData?.filter(m => m.sender_id === profile.id) || [];
-      const lastMsg = userMessages[0];
+    // Get messages for each ticket
+    const { data: allMessages } = await supabase
+      .from("chat_messages")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    const ticketsWithDetails: Ticket[] = ticketsData?.map(ticket => {
+      const profile = profiles?.find(p => p.id === ticket.user_id);
+      const ticketMessages = allMessages?.filter(m => m.ticket_id === ticket.id) || [];
+      const lastMsg = ticketMessages[0];
       
-      if (lastMsg) {
-        convMap.set(profile.id, {
-          userId: profile.id,
-          userName: profile.full_name,
-          lastMessage: lastMsg.content,
-          lastMessageTime: lastMsg.created_at,
-          unreadCount: userMessages.filter(m => !m.is_read).length
-        });
-      }
-    });
+      return {
+        ...ticket,
+        userName: profile?.full_name || "Unknown",
+        lastMessage: lastMsg?.content,
+        lastMessageTime: lastMsg?.created_at,
+        unreadCount: ticketMessages.filter(m => !m.is_read && m.sender_id !== currentUser?.id).length
+      };
+    }) || [];
 
-    setConversations(Array.from(convMap.values()).sort((a, b) => 
-      new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime()
-    ));
+    setPendingTickets(ticketsWithDetails.filter(t => t.status === 'pending'));
+    setActiveTickets(ticketsWithDetails.filter(t => t.status === 'active'));
   };
 
-  const loadMessages = async (userId: string) => {
+  const loadMessages = async (ticketId: string) => {
     const { data: messagesData, error } = await supabase
       .from("chat_messages")
       .select("*")
-      .or(`sender_id.eq.${userId},sender_id.eq.${currentUser?.id}`)
+      .eq("ticket_id", ticketId)
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -161,25 +181,54 @@ export const AdminLiveChat = () => {
     await supabase
       .from("chat_messages")
       .update({ is_read: true })
-      .eq("sender_id", userId)
+      .eq("ticket_id", ticketId)
+      .neq("sender_id", currentUser?.id)
       .eq("is_read", false);
   };
 
-  const handleSelectConversation = (userId: string) => {
-    setSelectedUserId(userId);
-    loadMessages(userId);
+  const handleAcceptTicket = async (ticket: Ticket) => {
+    const { error } = await supabase
+      .from("chat_tickets")
+      .update({ 
+        status: 'active',
+        accepted_by: currentUser?.id,
+        accepted_at: new Date().toISOString()
+      })
+      .eq("id", ticket.id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to accept ticket",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSelectedTicket(ticket);
+    loadMessages(ticket.id);
+    toast({
+      title: "Success",
+      description: "Ticket accepted"
+    });
+  };
+
+  const handleSelectTicket = (ticket: Ticket) => {
+    setSelectedTicket(ticket);
+    loadMessages(ticket.id);
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newMessage.trim() || !selectedUserId) return;
+    if (!newMessage.trim() || !selectedTicket) return;
 
     const { error } = await supabase
       .from("chat_messages")
       .insert({
         content: newMessage.trim(),
-        sender_id: currentUser.id
+        sender_id: currentUser.id,
+        ticket_id: selectedTicket.id
       });
 
     if (error) {
@@ -196,56 +245,113 @@ export const AdminLiveChat = () => {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-300px)]">
-      {/* Conversations List */}
+      {/* Tickets List */}
       <Card className="md:col-span-1">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5" />
-            Live Chat Tickets
+            Support Tickets
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <ScrollArea className="h-[calc(100vh-400px)]">
-            {conversations.length === 0 ? (
-              <div className="p-6 text-center text-muted-foreground">
-                No conversations yet
-              </div>
-            ) : (
-              conversations.map((conv) => (
-                <button
-                  key={conv.userId}
-                  onClick={() => handleSelectConversation(conv.userId)}
-                  className={`w-full p-4 border-b hover:bg-accent/50 transition-colors text-left ${
-                    selectedUserId === conv.userId ? "bg-accent" : ""
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <Avatar className="h-10 w-10">
-                        <AvatarFallback className="bg-secondary">
-                          {conv.userName.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{conv.userName}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {conv.lastMessage}
-                        </p>
+            {/* Pending Tickets */}
+            {pendingTickets.length > 0 && (
+              <div className="border-b">
+                <div className="p-3 bg-muted/50">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase">Pending ({pendingTickets.length})</p>
+                </div>
+                {pendingTickets.map((ticket) => (
+                  <div
+                    key={ticket.id}
+                    className="w-full p-4 border-b hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Avatar className="h-10 w-10">
+                          <AvatarFallback className="bg-secondary">
+                            {ticket.userName.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{ticket.userName}</p>
+                          {ticket.lastMessage && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              {ticket.lastMessage}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {formatDistanceToNow(new Date(conv.lastMessageTime), { addSuffix: true })}
-                      </span>
-                      {conv.unreadCount > 0 && (
-                        <Badge variant="default" className="h-5 w-5 p-0 flex items-center justify-center">
-                          {conv.unreadCount}
-                        </Badge>
+                      {ticket.lastMessageTime && (
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {formatDistanceToNow(new Date(ticket.lastMessageTime), { addSuffix: true })}
+                        </span>
                       )}
                     </div>
+                    <Button 
+                      onClick={() => handleAcceptTicket(ticket)}
+                      size="sm"
+                      className="w-full"
+                    >
+                      Accept Ticket
+                    </Button>
                   </div>
-                </button>
-              ))
+                ))}
+              </div>
+            )}
+
+            {/* Active Tickets */}
+            {activeTickets.length > 0 && (
+              <div>
+                <div className="p-3 bg-muted/50">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase">Active ({activeTickets.length})</p>
+                </div>
+                {activeTickets.map((ticket) => (
+                  <button
+                    key={ticket.id}
+                    onClick={() => handleSelectTicket(ticket)}
+                    className={`w-full p-4 border-b hover:bg-accent/50 transition-colors text-left ${
+                      selectedTicket?.id === ticket.id ? "bg-accent" : ""
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Avatar className="h-10 w-10">
+                          <AvatarFallback className="bg-secondary">
+                            {ticket.userName.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{ticket.userName}</p>
+                          {ticket.lastMessage && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              {ticket.lastMessage}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        {ticket.lastMessageTime && (
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {formatDistanceToNow(new Date(ticket.lastMessageTime), { addSuffix: true })}
+                          </span>
+                        )}
+                        {ticket.unreadCount > 0 && (
+                          <Badge variant="default" className="h-5 w-5 p-0 flex items-center justify-center">
+                            {ticket.unreadCount}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {pendingTickets.length === 0 && activeTickets.length === 0 && (
+              <div className="p-6 text-center text-muted-foreground">
+                No tickets yet
+              </div>
             )}
           </ScrollArea>
         </CardContent>
@@ -253,11 +359,14 @@ export const AdminLiveChat = () => {
 
       {/* Chat Messages */}
       <Card className="md:col-span-2 flex flex-col">
-        {selectedUserId ? (
+        {selectedTicket ? (
           <>
             <CardHeader>
-              <CardTitle>
-                {conversations.find(c => c.userId === selectedUserId)?.userName || "Chat"}
+              <CardTitle className="flex items-center justify-between">
+                <span>{selectedTicket.userName}</span>
+                <Badge variant={selectedTicket.status === 'active' ? 'default' : 'secondary'}>
+                  {selectedTicket.status}
+                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col p-0">
