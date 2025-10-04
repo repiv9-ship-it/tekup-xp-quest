@@ -97,19 +97,27 @@ const Chat = () => {
       setCurrentUser(profile);
       setIsOfficer(profile?.role === "officer");
       
-      // Check if user already has a ticket
-      const { data: existingTicket } = await supabase
+      // Check for most recent ticket
+      const { data: existingTickets } = await supabase
         .from("chat_tickets")
         .select("*")
         .eq("user_id", user.id)
-        .maybeSingle();
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-      if (existingTicket) {
+      const existingTicket = existingTickets?.[0];
+
+      if (existingTicket && existingTicket.status !== 'closed') {
+        setTicketId(existingTicket.id);
+        setTicketStatus(existingTicket.status);
+        await loadMessages(existingTicket.id);
+      } else if (existingTicket?.status === 'closed') {
+        // Show closed ticket but don't auto-create new one
         setTicketId(existingTicket.id);
         setTicketStatus(existingTicket.status);
         await loadMessages(existingTicket.id);
       } else {
-        // Create new ticket
+        // Create new ticket only if no ticket exists
         const { data: newTicket, error } = await supabase
           .from("chat_tickets")
           .insert({ user_id: user.id })
@@ -152,6 +160,33 @@ const Chat = () => {
     })) || [];
 
     setMessages(messagesWithSenders as Message[]);
+  };
+
+  const handleCreateNewTicket = async () => {
+    if (!currentUser) return;
+
+    const { data: newTicket, error } = await supabase
+      .from("chat_tickets")
+      .insert({ user_id: currentUser.id })
+      .select()
+      .single();
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create ticket",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setTicketId(newTicket.id);
+    setTicketStatus(newTicket.status);
+    setMessages([]);
+    toast({
+      title: "Success",
+      description: "New support ticket created"
+    });
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -220,10 +255,13 @@ const Chat = () => {
             </div>
           )}
           {ticketStatus === 'closed' && (
-            <div className="p-4 bg-destructive/10 border-b">
-              <p className="text-sm text-destructive text-center">
+            <div className="p-4 bg-muted/50 border-b flex flex-col items-center gap-3">
+              <p className="text-sm text-muted-foreground text-center">
                 This ticket has been closed.
               </p>
+              <Button onClick={handleCreateNewTicket} size="sm">
+                Start New Ticket
+              </Button>
             </div>
           )}
           <ScrollArea className="flex-1 px-6" ref={scrollRef}>
