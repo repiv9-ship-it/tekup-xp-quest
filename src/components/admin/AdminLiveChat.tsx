@@ -213,6 +213,31 @@ export const AdminLiveChat = () => {
     });
   };
 
+  const handleCloseTicket = async () => {
+    if (!selectedTicket) return;
+
+    const { error } = await supabase
+      .from("chat_tickets")
+      .update({ status: 'closed' })
+      .eq("id", selectedTicket.id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to close ticket",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    toast({
+      title: "Success",
+      description: "Ticket closed"
+    });
+    setSelectedTicket(null);
+    setMessages([]);
+  };
+
   const handleSelectTicket = (ticket: Ticket) => {
     setSelectedTicket(ticket);
     loadMessages(ticket.id);
@@ -364,9 +389,20 @@ export const AdminLiveChat = () => {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>{selectedTicket.userName}</span>
-                <Badge variant={selectedTicket.status === 'active' ? 'default' : 'secondary'}>
-                  {selectedTicket.status}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant={selectedTicket.status === 'active' ? 'default' : 'secondary'}>
+                    {selectedTicket.status}
+                  </Badge>
+                  {selectedTicket.status === 'active' && (
+                    <Button 
+                      onClick={handleCloseTicket}
+                      variant="destructive"
+                      size="sm"
+                    >
+                      Close Ticket
+                    </Button>
+                  )}
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col p-0">
