@@ -4,12 +4,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users, CheckSquare, Calendar, Bell, MessageSquare } from "lucide-react";
+import { ArrowLeft, Users, CheckSquare, Calendar, Bell, MessageSquare, BookOpen, CalendarClock, Mail } from "lucide-react";
 import { AdminTasks } from "@/components/admin/AdminTasks";
 import { AdminEvents } from "@/components/admin/AdminEvents";
 import { AdminMembers } from "@/components/admin/AdminMembers";
 import { AdminAnnouncements } from "@/components/admin/AdminAnnouncements";
 import { AdminLiveChat } from "@/components/admin/AdminLiveChat";
+import { AdminChapters } from "@/components/admin/AdminChapters";
+import { AdminSchedules } from "@/components/admin/AdminSchedules";
+import { AdminMessages } from "@/components/admin/AdminMessages";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -70,26 +73,38 @@ const Admin = () => {
 
       <div className="max-w-6xl mx-auto p-6">
         <Tabs defaultValue="tasks" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 mb-6">
             <TabsTrigger value="tasks" className="gap-2">
               <CheckSquare className="h-4 w-4" />
-              Tasks
+              <span className="hidden sm:inline">Tasks</span>
             </TabsTrigger>
             <TabsTrigger value="events" className="gap-2">
               <Calendar className="h-4 w-4" />
-              Events
+              <span className="hidden sm:inline">Events</span>
+            </TabsTrigger>
+            <TabsTrigger value="chapters" className="gap-2">
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline">Chapters</span>
+            </TabsTrigger>
+            <TabsTrigger value="schedules" className="gap-2">
+              <CalendarClock className="h-4 w-4" />
+              <span className="hidden sm:inline">Schedules</span>
             </TabsTrigger>
             <TabsTrigger value="members" className="gap-2">
               <Users className="h-4 w-4" />
-              Members
+              <span className="hidden sm:inline">Members</span>
+            </TabsTrigger>
+            <TabsTrigger value="messages" className="gap-2">
+              <Mail className="h-4 w-4" />
+              <span className="hidden sm:inline">Messages</span>
             </TabsTrigger>
             <TabsTrigger value="livechat" className="gap-2">
               <MessageSquare className="h-4 w-4" />
-              Live Chat
+              <span className="hidden sm:inline">Live Chat</span>
             </TabsTrigger>
             <TabsTrigger value="announcements" className="gap-2">
               <Bell className="h-4 w-4" />
-              Announcements
+              <span className="hidden sm:inline">Announcements</span>
             </TabsTrigger>
           </TabsList>
 
@@ -101,8 +116,20 @@ const Admin = () => {
             <AdminEvents />
           </TabsContent>
 
+          <TabsContent value="chapters">
+            <AdminChapters />
+          </TabsContent>
+
+          <TabsContent value="schedules">
+            <AdminSchedules />
+          </TabsContent>
+
           <TabsContent value="members">
             <AdminMembers />
+          </TabsContent>
+
+          <TabsContent value="messages">
+            <AdminMessages />
           </TabsContent>
 
           <TabsContent value="livechat">

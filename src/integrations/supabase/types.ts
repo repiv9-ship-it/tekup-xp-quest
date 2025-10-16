@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       announcements: {
         Row: {
+          chapter_id: string | null
           content: string
           created_at: string
           created_by: string | null
@@ -25,6 +26,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          chapter_id?: string | null
           content: string
           created_at?: string
           created_by?: string | null
@@ -34,6 +36,7 @@ export type Database = {
           title: string
         }
         Update: {
+          chapter_id?: string | null
           content?: string
           created_at?: string
           created_by?: string | null
@@ -43,6 +46,13 @@ export type Database = {
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "announcements_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "announcements_created_by_fkey"
             columns: ["created_by"]
@@ -79,6 +89,69 @@ export type Database = {
           image_url?: string | null
           name?: string
           xp_requirement?: number | null
+        }
+        Relationships: []
+      }
+      chapter_members: {
+        Row: {
+          chapter_id: string
+          id: string
+          joined_at: string
+          user_id: string
+        }
+        Insert: {
+          chapter_id: string
+          id?: string
+          joined_at?: string
+          user_id: string
+        }
+        Update: {
+          chapter_id?: string
+          id?: string
+          joined_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chapter_members_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chapter_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chapters: {
+        Row: {
+          color: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -147,6 +220,7 @@ export type Database = {
       events: {
         Row: {
           capacity: number | null
+          chapter_id: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -160,6 +234,7 @@ export type Database = {
         }
         Insert: {
           capacity?: number | null
+          chapter_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -173,6 +248,7 @@ export type Database = {
         }
         Update: {
           capacity?: number | null
+          chapter_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -186,8 +262,60 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "events_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "events_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_read: boolean
+          recipient_id: string
+          sender_id: string
+          subject: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          recipient_id: string
+          sender_id: string
+          subject: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          recipient_id?: string
+          sender_id?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_messages_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_messages_sender_id_fkey"
+            columns: ["sender_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -203,6 +331,7 @@ export type Database = {
           full_name: string
           id: string
           last_login: string | null
+          last_login_date: string | null
           level: number
           major: string | null
           membership_status: string | null
@@ -221,6 +350,7 @@ export type Database = {
           full_name: string
           id: string
           last_login?: string | null
+          last_login_date?: string | null
           level?: number
           major?: string | null
           membership_status?: string | null
@@ -239,6 +369,7 @@ export type Database = {
           full_name?: string
           id?: string
           last_login?: string | null
+          last_login_date?: string | null
           level?: number
           major?: string | null
           membership_status?: string | null
@@ -287,6 +418,60 @@ export type Database = {
           {
             foreignKeyName: "rsvps_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schedules: {
+        Row: {
+          chapter_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          end_time: string
+          id: string
+          location: string | null
+          start_time: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          chapter_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_time: string
+          id?: string
+          location?: string | null
+          start_time: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          chapter_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_time?: string
+          id?: string
+          location?: string | null
+          start_time?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedules_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedules_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -357,6 +542,7 @@ export type Database = {
       tasks: {
         Row: {
           attachment_url: string | null
+          chapter_id: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -371,6 +557,7 @@ export type Database = {
         }
         Insert: {
           attachment_url?: string | null
+          chapter_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -385,6 +572,7 @@ export type Database = {
         }
         Update: {
           attachment_url?: string | null
+          chapter_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -398,6 +586,13 @@ export type Database = {
           xp_reward?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "tasks_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tasks_created_by_fkey"
             columns: ["created_by"]
